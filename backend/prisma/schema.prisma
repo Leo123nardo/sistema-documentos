@@ -1,0 +1,440 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+
+model Departamento {
+  id        Int    @id @default(autoincrement()) @map("ID_Departamento")
+  nombre    String @map("nombre_departamento") @db.VarChar(60)
+  codigo    String @unique @map("codigo_departamento") @db.VarChar(45)
+
+  usuarios      Usuario[]
+  requisiciones Requisicion[]
+  flujosPasos   FlujoPaso[]
+
+  @@map("departamentos")
+}
+
+
+model Rol {
+  id     Int    @id @default(autoincrement()) @map("ID_Rol")
+  nombre String @unique @map("nombre_rol") @db.VarChar(60)
+
+  flujosPasos FlujoPaso[]
+  usuarios UsuarioRol[]
+
+  @@map("roles")
+}
+
+
+
+model Puesto {
+  id     Int    @id @default(autoincrement()) @map("ID_Puesto")
+  nombre String @unique @db.VarChar(65)
+
+  usuarios Usuario[]
+  planes   PerfilPlanCarrera[]
+  flujosPasos FlujoPaso[]
+
+  @@map("puestos")
+}
+
+
+model Usuario {
+  id        Int    @id @default(autoincrement()) @map("ID_Usuario")
+  nombre    String @map("nombre_usuario") @db.VarChar(100)
+  email     String @unique @map("correo_electronico") @db.VarChar(100)
+  password  String @map("contrasena") @db.VarChar(100)
+
+  departamentoId Int? @map("ID_Departamento")
+  puestoId       Int? @map("ID_Puesto")
+
+  departamento Departamento? @relation(fields: [departamentoId], references: [id])
+  puesto       Puesto?       @relation(fields: [puestoId], references: [id])
+  requisicionesFirmadas Requisicion[] @relation("FirmaSolicitante")
+
+
+  aprobaciones Aprobacion[]
+  roles UsuarioRol[]
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("usuarios")
+}
+
+
+model UsuarioRol {
+  usuarioId Int @map("ID_Usuario")
+  rolId     Int @map("ID_Rol")
+
+  usuario Usuario @relation(fields: [usuarioId], references: [id])
+  rol     Rol     @relation(fields: [rolId], references: [id])
+
+  @@id([usuarioId, rolId])
+  @@map("usuario_roles")
+}
+
+model Aprobacion {
+  id            Int    @id @default(autoincrement()) @map("ID_Aprobacion")
+
+  requisicionFlujoId Int @map("ID_RF")
+  flujoPasoId        Int @map("ID_FlujosPasos")
+  aprobadorId        Int? @map("aprobador_user_id")
+
+  estado        String @default("PENDIENTE") @map("estado") @db.VarChar(20)
+  comentario    String? @map("comentario") @db.VarChar(300)
+
+  firmadoEn     DateTime? @map("firmado_en")
+  ip            String? @map("firmado_desde_ip") @db.VarChar(45)
+  userAgent     String? @map("user_agent") @db.VarChar(200)
+
+  requisicionFlujo RequisicionFlujo @relation(fields: [requisicionFlujoId], references: [id], onDelete: Cascade)
+  paso             FlujoPaso        @relation(fields: [flujoPasoId], references: [id])
+  aprobador        Usuario?         @relation(fields: [aprobadorId], references: [id])
+
+  firmas FirmaDigital[]
+
+  @@unique([requisicionFlujoId, flujoPasoId])
+  @@map("aprobaciones")
+}
+
+model Conocimiento {
+  id          Int      @id @default(autoincrement()) @map("ID_Conocimiento")
+  descripcion String   @unique @map("descripcion") @db.VarChar(65)
+
+  perfiles PerfilConocimiento[]
+
+  @@map("conocimientos")
+}
+
+model EquipoMaquinaria {
+  id     Int    @id @default(autoincrement()) @map("ID_EquiposM")
+  nombre String @unique @map("nombre") @db.VarChar(65)
+
+  perfiles PerfilEquipoMaquinaria[]
+
+  @@map("equipos_maquinaria")
+}
+
+model FirmaDigital {
+  id            Int    @id @default(autoincrement()) @map("ID_FirmaDigital")
+  aprobacionId  Int    @map("ID_Aprobacion")
+
+  tipo          TipoFirma
+  hash          String @map("hash") @db.Char(64)
+  archivoRuta   String? @map("archivo_ruta") @db.VarChar(255)
+
+  creadoEn      DateTime @default(now()) @map("creado_en")
+
+  aprobacion Aprobacion @relation(fields: [aprobacionId], references: [id], onDelete: Cascade)
+
+  @@map("firmas_digitales")
+}
+
+model Flujo {
+  id        Int    @id @default(autoincrement()) @map("ID_Flujo")
+  nombre    String @map("nombre_flujo") @db.VarChar(60)
+  version   String @map("version") @db.VarChar(20)
+  activo    Boolean @default(true) @map("activo")
+
+  pasos         FlujoPaso[]
+  requisiciones RequisicionFlujo[]
+
+  @@unique([nombre, version])
+  @@map("flujos")
+}
+
+model FlujoPaso {
+  id            Int    @id @default(autoincrement()) @map("ID_FlujosPasos")
+  flujoId       Int    @map("ID_Flujo")
+
+  orden         Int    @map("orden")
+  titulo        String @map("titulo") @db.VarChar(80)
+  obligatorio   Boolean @default(true) @map("obligatorio")
+
+  rolId         Int?   @map("ID_Rol")
+  puestoId      Int?   @map("ID_Puesto")
+  departamentoId Int?  @map("ID_Departamento")
+
+  flujo        Flujo        @relation(fields: [flujoId], references: [id], onDelete: Cascade)
+  rol          Rol?         @relation(fields: [rolId], references: [id])
+  puesto       Puesto?      @relation(fields: [puestoId], references: [id])
+  departamento Departamento? @relation(fields: [departamentoId], references: [id])
+
+  aprobaciones Aprobacion[]
+
+  @@unique([flujoId, orden])
+  @@map("flujos_pasos")
+}
+
+model FormacionAcademica {
+  id     Int    @id @default(autoincrement()) @map("ID_FormacionAcademica")
+  nombre String @unique @map("nombre") @db.VarChar(45)
+
+  perfiles PerfilFormacionAcademica[]
+
+  @@map("formacion_academica")
+}
+
+model FuncionPrincipal {
+  id            Int @id @default(autoincrement()) @map("ID_FP")
+  requisicionId Int @map("requisicion_id")
+  orden         Int @map("orden")
+  descripcion   String @map("descripcion") @db.VarChar(65)
+
+  requisicion Requisicion @relation(fields: [requisicionId], references: [id], onDelete: Cascade)
+
+  @@unique([requisicionId, orden])
+  @@map("funciones_principales")
+}
+
+model HabilidadInformatica {
+  id     Int    @id @default(autoincrement()) @map("ID_Habilidad")
+  nombre String @unique @map("nombre") @db.VarChar(65)
+
+  perfiles PerfilHabilidadInformatica[]
+
+  @@map("habilidades_informaticas")
+}
+
+model Idioma {
+  id     Int @id @default(autoincrement()) @map("ID_Idioma")
+  nombre String @unique @map("nombre_idioma") @db.VarChar(65)
+
+  perfiles PerfilIdioma[]
+
+  @@map("idiomas")
+}
+
+model PerfilConocimiento {
+  id             Int @id @default(autoincrement()) @map("ID_PC")
+
+  perfilId       Int @map("Perfiles_Vacante_ID_Vacante")
+  conocimientoId Int @map("Conocimientos_ID_Conocimiento")
+
+  tiempoMeses    Int? @map("tiempo_meses")
+
+  perfil PerfilVacante @relation(fields: [perfilId], references: [id], onDelete: Cascade)
+
+  conocimiento Conocimiento @relation(fields: [conocimientoId], references: [id])
+
+  @@unique([perfilId, conocimientoId])
+  @@map("perfil_conocimiento")
+}
+
+model PerfilEquipoMaquinaria {
+  perfilId Int @map("Perfiles_Vacante_ID_Vacante")
+  equipoId Int @map("Equipos_Maquinaria_ID_EquiposM")
+
+  perfil PerfilVacante   @relation(fields: [perfilId], references: [id], onDelete: Cascade)
+
+  equipo  EquipoMaquinaria @relation(fields: [equipoId], references: [id])
+
+  @@id([perfilId, equipoId])
+  @@map("perfil_equiposm")
+}
+
+model PerfilFormacionAcademica {
+  perfilId    Int @map("Perfiles_Vacante_ID_Vacante")
+  formacionId Int @map("Formacion_Academica_ID_FormacionAcademica")
+
+  perfil PerfilVacante @relation(fields: [perfilId], references: [id], onDelete: Cascade)
+
+  formacion FormacionAcademica @relation(fields: [formacionId], references: [id])
+
+  @@id([perfilId, formacionId])
+  @@map("perfil_formacionesa")
+}
+
+
+model PerfilHabilidadInformatica {
+  perfilId    Int @map("Perfiles_Vacante_ID_Vacante")
+  habilidadId Int @map("Habilidades_Informaticas_ID_Habilidad")
+
+  perfil  PerfilVacante @relation(fields: [perfilId], references: [id], onDelete: Cascade)
+
+  habilidad  HabilidadInformatica @relation(fields: [habilidadId], references: [id])
+
+  @@id([perfilId, habilidadId])
+  @@map("perfil_habilidadesi")
+}
+
+
+model PerfilIdioma {
+  id              Int @id @default(autoincrement()) @map("ID_PI")
+
+  perfilId        Int @map("Perfiles_Vacante_ID_Vacante")
+  idiomaId        Int @map("Idiomas_ID_Idioma")
+
+  pctLeido        Int @default(0) @map("pct_leido")
+  pctHablado      Int @default(0) @map("pct_hablado")
+  pctEscrito      Int @default(0) @map("pct_escrito")
+
+  perfil          PerfilVacante @relation(fields: [perfilId], references: [id], onDelete: Cascade)
+  idioma          Idioma        @relation(fields: [idiomaId], references: [id])
+
+  @@unique([perfilId, idiomaId])
+  @@map("perfil_idiomas")
+}
+
+model PerfilPlanCarrera {
+  id        Int @id @default(autoincrement()) @map("ID_PerfilPC")
+
+  perfilId  Int @map("Perfiles_Vacante_ID_Vacante")
+  puestoId  Int @map("ID_Puesto")
+
+  orden     Int @default(1) @map("orden")
+
+  perfil PerfilVacante @relation(fields: [perfilId], references: [id], onDelete: Cascade)
+
+  puesto Puesto @relation(fields: [puestoId], references: [id])
+
+  @@unique([perfilId, puestoId])
+  @@map("perfil_plan_carrera")
+}
+
+model PerfilRasgoPersonalidad {
+  perfilId Int @map("Perfiles_Vacante_ID_Vacante")
+  rasgoId  Int @map("Rasgos_Personalidad_ID_Rasgo")
+
+  perfil PerfilVacante @relation(fields: [perfilId], references: [id], onDelete: Cascade)
+
+  rasgo  RasgoPersonalidad @relation(fields: [rasgoId], references: [id])
+
+  @@id([perfilId, rasgoId])
+  @@map("perfil_rasgosp")
+}
+
+model PerfilVacante {
+  id                 Int      @id @default(autoincrement()) @map("ID_Vacante")
+
+  edadMinima         Int?     @map("edad_minima")
+  edadMaxima         Int?     @map("edad_maxima")
+  sexo               Sexo?
+  anosExperiencia    Int?     @map("anos_experiencia")
+  sueldoMin          Int?
+  sueldoMax          Int?
+  nivelPuesto        String?
+
+  horarioLaboral     HorarioLaboral?
+  gradoEstudio       GradoEstudio?
+
+  generacionVacante  String?  @map("generacion_vacante") @db.VarChar(65)
+
+  viaje              Boolean  @default(false) @map("viaje")
+  auto               Boolean  @default(false) @map("auto")
+  cambioResidencia   Boolean  @default(false) @map("cambio_residencia")
+
+  requisicionId      Int      @unique @map("Requisiciones_ID_Requisicion")
+  requisicion        Requisicion @relation(fields: [requisicionId], references: [id], onDelete: Cascade)
+
+  // Detalles del perfil
+  idiomas            PerfilIdioma[]
+  conocimientos      PerfilConocimiento[]
+  habilidades        PerfilHabilidadInformatica[]
+  equipos            PerfilEquipoMaquinaria[]
+  rasgos             PerfilRasgoPersonalidad[]
+  formaciones        PerfilFormacionAcademica[]
+  planCarrera        PerfilPlanCarrera[]
+
+  @@map("perfiles_vacante")
+}
+
+model RasgoPersonalidad {
+  id          Int    @id @default(autoincrement()) @map("ID_Rasgo")
+  descripcion String @unique @map("descripcion") @db.VarChar(65)
+
+  perfiles PerfilRasgoPersonalidad[]
+
+  @@map("rasgos_personalidad")
+}
+
+model RequisicionFlujo {
+  id            Int    @id @default(autoincrement()) @map("ID_RF")
+
+  requisicionId Int    @unique @map("ID_Requisicion")
+  flujoId       Int    @map("ID_Flujo")
+
+  estado        String @default("EN_REVISION") @map("estado") @db.VarChar(20)
+
+  iniciadoEn    DateTime @default(now()) @map("iniciado_en")
+  finalizadoEn  DateTime? @map("finalizado_en")
+
+  requisicion Requisicion @relation(fields: [requisicionId], references: [id], onDelete: Cascade)
+  flujo       Flujo       @relation(fields: [flujoId], references: [id])
+
+  aprobaciones Aprobacion[]
+
+  @@map("requisicion_flujo")
+}
+
+model Requisicion {
+  id                Int      @id @default(autoincrement()) @map("ID_Requisicion")
+  folio             String   @unique @map("folio") @db.VarChar(45)
+  fechaSolicitud    DateTime @map("fecha_solicitud") @db.Date
+
+  departamentoId    Int      @map("departamento_area")
+  departamento      Departamento @relation(fields: [departamentoId], references: [id])
+
+  nombreJefe        String?  @map("nombre_jefe") @db.VarChar(65)
+  personalCargo     Int?     @map("personal_cargo")
+  puestoSolicitado  String?  @map("puesto_solicitado") @db.VarChar(65)
+  proyectoPlanta    String?  @map("proyecto_planta") @db.VarChar(65)
+
+  cantidadRequerida Int      @default(1) @map("cantidad_requerida")
+  estado            String   @default("BORRADOR") @map("estado_requisicion") @db.VarChar(45)
+
+  createdAt         DateTime @default(now()) @map("created_at")
+  updatedAt         DateTime @default(now()) @map("updated_at")
+
+  firmadoPorId     Int?
+  firmadoPor       Usuario? @relation("FirmaSolicitante", fields: [firmadoPorId], references: [id])
+  firmadoEn        DateTime?
+
+
+  perfil PerfilVacante?
+  flujo  RequisicionFlujo?
+
+  @@map("requisiciones")
+  funcionPrincipals FuncionPrincipal[]
+}
+
+enum TipoFirma {
+  drawn
+  typed
+  image
+  password_confirm
+  cert
+
+  @@map("firmas_digitales_tipo")
+}
+
+enum Sexo {
+  F
+  M
+  NA
+
+  @@map("perfiles_vacante_sexo")
+}
+
+enum HorarioLaboral {
+  Turnos
+  Oficinas
+
+  @@map("perfiles_vacante_horario_laboral")
+}
+
+enum GradoEstudio {
+  Profesionista
+  Tecnico
+  Becario
+  Practicante
+
+  @@map("perfiles_vacante_grado_estudio")
+}
