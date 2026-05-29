@@ -8,7 +8,7 @@ async function bootstrap() {
   app.setGlobalPrefix('api');
 
   app.enableCors({
-    origin: true, // 🔥 importante para producción
+    origin: true,
     credentials: true,
   });
 
@@ -22,6 +22,8 @@ async function bootstrap() {
 
   const port = process.env.PORT || 3000;
   await app.listen(port);
+
+  console.log(`App running on port: ${port}`);
 }
 
 bootstrap();
